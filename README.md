@@ -22,9 +22,18 @@ This implementation provides flexible backends and prompts so that users can eas
 uv pip install -e .
 ```
 
+## Available Backends
+
+LangPert supports multiple LLM backends for flexibility:
+
+- `gemini_backend` - Google Gemini API (gemini-2.5-pro, gemini-2.5-flash)
+- `openai_backend` - OpenAI and compatible APIs (GPT-4, custom endpoints)
+- `transformers_backend` - HuggingFace Transformers (local inference)
+- `unsloth_backend` - Unsloth-optimized models (faster local inference)
+
 ## Quick Start
 
-In this first example, we'll use Google API (you can get a key from Google AI Studio), but in principle you can use any LLM backend, either API or locally running model.
+In this first example, we'll use Google Gemini API (you can get a key from Google AI Studio), but you can use any backend listed above.
 
 
 ```python
@@ -98,12 +107,25 @@ backend = unsloth_backend(
 )
 ```
 
-**Available backends:** 
 
-- `gemini_backend`
-- `openai_backend`
-- `transformers_backend`
-- `unsloth_backend`
+## Repository Structure
+
+```
+langpert/
+├── backends/          # LLM backend implementations
+│   ├── openai.py     # OpenAI/Azure compatible APIs
+│   ├── gemini.py     # Google Gemini API
+│   ├── transformers.py  # HuggingFace Transformers
+│   └── unsloth.py    # Unsloth-optimized models
+├── prompts/          # Prompt templates and loading utilities
+│   ├── templates.py  # Prompt template registry
+│   ├── system_prompts.py  # System prompt templates
+│   └── loader.py     # Template loading functions
+├── core/             # Main LangPert model
+│   └── model.py      # LangPert class with prediction logic
+├── utils.py          # Helper functions (gene extraction, kNN)
+└── cache_utils.py    # Cache management for local models
+```
 
 
 ## Citation

@@ -135,8 +135,8 @@ class LangPert:
             print(llm_response)
             print(f"{'-'*40}")
 
-        # Extract kNN genes from response
-        knn_genes = extract_genes_from_output(llm_response)
+        # Extract kNN genes and reasoning from response
+        knn_genes, reasoning = extract_genes_from_output(llm_response)
 
         # Validate kNN genes against available observations
         valid_knn_genes = validate_gene_list(knn_genes, self.available_genes)
@@ -162,14 +162,6 @@ class LangPert:
                 self.observed_effects,
                 self.fallback_mean
             )
-
-        # Extract reasoning if present
-        reasoning = None
-        try:
-            parsed = json.loads(llm_response.strip())
-            reasoning = parsed.get("reasoning")
-        except:
-            pass
 
         return PredictionResult(
             gene=target_gene,

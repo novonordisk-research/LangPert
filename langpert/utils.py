@@ -5,38 +5,35 @@ Utility functions for LangPert.
 import json
 import re
 import numpy as np
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Tuple
 
 
-def extract_genes_from_output(response: str) -> List[str]:
-    """
-    Extract kNN genes from LLM response with robust handling of different formats.
-    Returns empty list if no valid JSON with kNN field is found.
+def extract_genes_from_output(response: str) -> Tuple[List[str], Optional[str]]:
+    """Extract kNN genes and reasoning from LLM response.
 
     Args:
         response: Raw LLM response text
 
     Returns:
-        List of gene names from kNN field
+        Tuple of (gene_list, reasoning_text)
     """
     # Case 1: Response is already valid JSON
     try:
         data = json.loads(response.strip())
         if 'kNN' in data:
-            return data.get('kNN', [])
+            return data.get('kNN', []), data.get('reasoning')
     except json.JSONDecodeError:
-        pass  # Not direct JSON, continue to other methods
+        pass
 
     # Case 2: JSON in code blocks (markdown format)
     json_pattern = r'```(?:json)?\s*((?:\{|\[).*?(?:\}|\]))(?:\n|$)\s*```'
     matches = re.findall(json_pattern, response, re.DOTALL)
 
-    # Try each match to find one with kNN
     for match in matches:
         try:
             data = json.loads(match.strip())
             if 'kNN' in data:
-                return data.get('kNN', [])
+                return data.get('kNN', []), data.get('reasoning')
         except json.JSONDecodeError:
             continue
 
@@ -46,11 +43,10 @@ def extract_genes_from_output(response: str) -> List[str]:
 
     for match in matches:
         try:
-            # Clean up the match
             cleaned = match.strip()
             data = json.loads(cleaned)
             if 'kNN' in data:
-                return data.get('kNN', [])
+                return data.get('kNN', []), data.get('reasoning')
         except json.JSONDecodeError:
             continue
 
@@ -62,12 +58,11 @@ def extract_genes_from_output(response: str) -> List[str]:
         try:
             genes = json.loads(match)
             if genes and isinstance(genes, list):
-                return genes
+                return genes, None
         except json.JSONDecodeError:
             continue
 
-    # Return empty list if no valid genes found
-    return []
+    return [], None
 
 
 def calculate_knn_mean(knn_genes: List[str], obs_mean: Dict[str, np.ndarray],

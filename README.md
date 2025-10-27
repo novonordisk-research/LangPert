@@ -18,16 +18,22 @@ This implementation provides flexible backends and prompts so that users can eas
 
 ## Installation
 
+**Basic installation** (includes OpenAI and Gemini API support):
 ```bash
 uv pip install -e .
+```
+
+**With local model support** (Transformers + Unsloth):
+```bash
+uv pip install -e .[all]
 ```
 
 ## Available Backends
 
 LangPert supports multiple LLM backends for flexibility:
 
-- `gemini_backend` - Google Gemini API (gemini-2.5-pro, gemini-2.5-flash)
-- `openai_backend` - OpenAI and compatible APIs (GPT-4, custom endpoints)
+- `gemini_backend` - Google Gemini API (gemini-2.5-pro, gemini-2.5-flash etc)
+- `openai_backend` - OpenAI and compatible APIs (gpt-4o, o4-mini etc)
 - `transformers_backend` - HuggingFace Transformers (local inference)
 - `unsloth_backend` - Unsloth-optimized models (faster local inference)
 

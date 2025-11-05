@@ -67,10 +67,8 @@ class UnslothBackend(BaseBackend):
             cache_dir=self.cache_dir,
         )
 
-        try:
-            FastLanguageModel.for_inference(self.model)
-        except Exception:
-            pass
+        FastLanguageModel.for_inference(self.model)
+        print(f"✓ Enabled Unsloth fast inference for {self.model_name}")
 
     def _format_as_chat(self, prompt: str, system_prompt: Optional[str]) -> Optional[List[Dict[str, str]]]:
         messages: List[Dict[str, str]] = []

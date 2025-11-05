@@ -93,6 +93,9 @@ class LangPert:
         if not candidate_genes:
             raise ValueError(f"No valid candidate genes available for {target_gene}")
 
+        # sort candidate genes alphabetically
+        candidate_genes = sorted(candidate_genes)
+
         # Format prompt
         template = prompt_template or self.prompt_template
         prompt = format_prompt(template, target_gene, candidate_genes, k_range=k_range)

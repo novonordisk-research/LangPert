@@ -25,13 +25,17 @@ def extract_genes_from_output(response: str) -> Tuple[List[str], Optional[str]]:
     except json.JSONDecodeError:
         pass
 
-    # Case 2: JSON in code blocks (markdown format)
-    json_pattern = r'```(?:json)?\s*((?:\{|\[).*?(?:\}|\]))(?:\n|$)\s*```'
+    # Case 2: JSON in code blocks (markdown format) or XML-style tags
+    json_pattern = r'(?:```(?:json)?\s*((?:\{|\[).*?(?:\}|\]))(?:\n|$)\s*```|<json>\s*((?:\{|\[).*?(?:\}|\]))\s*</json>)'
     matches = re.findall(json_pattern, response, re.DOTALL)
 
     for match in matches:
+        # match is a tuple (markdown_group, xml_group), use whichever is non-empty
+        json_str = match[0] if match[0] else match[1]
+        if not json_str:
+            continue
         try:
-            data = json.loads(match.strip())
+            data = json.loads(json_str.strip())
             if 'kNN' in data:
                 return data.get('kNN', []), data.get('reasoning')
         except json.JSONDecodeError:

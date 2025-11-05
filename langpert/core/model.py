@@ -59,6 +59,43 @@ class LangPert:
         self._last_verbose_template = None
         self._last_verbose_system_prompt = None
 
+    def _prepare_candidates(self, target_gene: str, candidate_genes: Optional[List[str]] = None) -> List[str]:
+        """Prepare and validate candidate genes for a target gene."""
+        if candidate_genes is None:
+            candidates = [g for g in self.available_genes if g != target_gene]
+        else:
+            candidates = validate_gene_list(candidate_genes, self.available_genes)
+            candidates = [g for g in candidates if g != target_gene]
+
+        if not candidates:
+            raise ValueError(f"No valid candidate genes available for {target_gene}")
+
+        return sorted(candidates)
+
+    def _process_llm_response(self, gene: str, llm_response: str) -> PredictionResult:
+        """Process LLM response into a PredictionResult."""
+        knn_genes, reasoning = extract_genes_from_output(llm_response)
+        valid_knn_genes = validate_gene_list(knn_genes, self.available_genes)
+
+        if not valid_knn_genes:
+            if self.fallback_mean is None:
+                raise ValueError(f"No valid kNN genes found for {gene} and no fallback provided")
+            prediction = self.fallback_mean.copy()
+        else:
+            prediction = calculate_knn_mean(
+                valid_knn_genes,
+                self.observed_effects,
+                self.fallback_mean
+            )
+
+        return PredictionResult(
+            gene=gene,
+            knn_genes=valid_knn_genes,
+            prediction=prediction,
+            llm_response=llm_response,
+            reasoning=reasoning
+        )
+
     def predict_perturbation(self, target_gene: str,
                       candidate_genes: Optional[List[str]] = None,
                       prompt_template: Optional[str] = None,
@@ -81,20 +118,8 @@ class LangPert:
         Returns:
             PredictionResult containing prediction and metadata
         """
-        # Use provided candidates or all available genes (excluding target)
-        if candidate_genes is None:
-            candidate_genes = [g for g in self.available_genes if g != target_gene]
-        else:
-            # Validate candidate genes
-            candidate_genes = validate_gene_list(candidate_genes, self.available_genes)
-            # Remove target gene if present
-            candidate_genes = [g for g in candidate_genes if g != target_gene]
-
-        if not candidate_genes:
-            raise ValueError(f"No valid candidate genes available for {target_gene}")
-
-        # sort candidate genes alphabetically
-        candidate_genes = sorted(candidate_genes)
+        # Prepare candidate genes
+        candidate_genes = self._prepare_candidates(target_gene, candidate_genes)
 
         # Format prompt
         template = prompt_template or self.prompt_template
@@ -127,7 +152,7 @@ class LangPert:
         llm_response = self.backend.generate_text(
             prompt,
             system_prompt=self.system_prompt,
-            verbose=False,  # Don't print backend messages in batch mode
+            verbose=False,
             **llm_kwargs
         )
 
@@ -137,47 +162,22 @@ class LangPert:
             print(f"{'-'*40}")
             print(llm_response)
             print(f"{'-'*40}")
+            print()
 
-        # Extract kNN genes and reasoning from response
-        knn_genes, reasoning = extract_genes_from_output(llm_response)
-
-        # Validate kNN genes against available observations
-        valid_knn_genes = validate_gene_list(knn_genes, self.available_genes)
+        # Process response into prediction result
+        result = self._process_llm_response(target_gene, llm_response)
 
         # Print extracted genes in verbose mode
-        if verbose:
-            if valid_knn_genes:
-                print(f"[{target_gene}] Extracted kNN genes: {', '.join(valid_knn_genes)}")
-            else:
-                print(f"[{target_gene}] No valid kNN genes extracted")
-            print()  # Empty line for separation
+        if verbose and result.knn_genes:
+            print(f"[{target_gene}] Extracted kNN genes: {', '.join(result.knn_genes)}")
 
-        if not valid_knn_genes:
-            if not verbose:
-                print(f"Warning: No valid kNN genes found for {target_gene}. Using fallback.")
-            if self.fallback_mean is None:
-                raise ValueError(f"No valid kNN genes found for {target_gene} and no fallback provided")
-            prediction = self.fallback_mean.copy()
-        else:
-            # Calculate mean perturbation effect from kNN genes
-            prediction = calculate_knn_mean(
-                valid_knn_genes,
-                self.observed_effects,
-                self.fallback_mean
-            )
-
-        return PredictionResult(
-            gene=target_gene,
-            knn_genes=valid_knn_genes,
-            prediction=prediction,
-            llm_response=llm_response,
-            reasoning=reasoning
-        )
+        return result
 
     def predict_batch(self, target_genes: List[str],
                      candidate_genes: Optional[List[str]] = None,
                      prompt_template: Optional[str] = None,
                      k_range: Optional[str] = None,
+                     batch_size: Optional[int] = None,
                      **llm_kwargs) -> Dict[str, PredictionResult]:
         """
         Predict perturbation effects for multiple genes.
@@ -188,6 +188,7 @@ class LangPert:
             prompt_template: Override default prompt template
             k_range: Number or range of neighbors to find (e.g., "5-10", "10", "3-5").
                     Defaults to "5-10" if not specified.
+            batch_size: Number of genes to process in parallel. If None, processes sequentially.
             **llm_kwargs: Additional arguments passed to LLM backend
 
         Returns:
@@ -195,19 +196,60 @@ class LangPert:
         """
         results = {}
 
-        for gene in tqdm(target_genes, desc="Predicting genes"):
+        # Sequential processing when batch_size is None or 1
+        if batch_size is None or batch_size <= 1:
+            for gene in tqdm(target_genes, desc="Predicting genes"):
+                try:
+                    results[gene] = self.predict_perturbation(
+                        gene,
+                        candidate_genes=candidate_genes,
+                        prompt_template=prompt_template,
+                        k_range=k_range,
+                        **llm_kwargs
+                    )
+                except Exception as e:
+                    tqdm.write(f"Error processing {gene}: {e}")
+            return results
+
+        # Batched processing
+        template = prompt_template or self.prompt_template
+
+        for i in tqdm(range(0, len(target_genes), batch_size), desc="Predicting genes (batched)"):
+            batch_genes = target_genes[i:i+batch_size]
+            batch_prompts = []
+            batch_valid_genes = []
+
+            # Prepare prompts for this batch
+            for gene in batch_genes:
+                try:
+                    gene_candidates = self._prepare_candidates(gene, candidate_genes)
+                    prompt = format_prompt(template, gene, gene_candidates, k_range=k_range)
+                    batch_prompts.append(prompt)
+                    batch_valid_genes.append(gene)
+                except ValueError as e:
+                    tqdm.write(f"Warning: {e}, skipping")
+                    continue
+
+            if not batch_prompts:
+                continue
+
+            # Generate responses for batch
             try:
-                result = self.predict_perturbation(
-                    gene,
-                    candidate_genes=candidate_genes,
-                    prompt_template=prompt_template,
-                    k_range=k_range,
+                llm_responses = self.backend.generate_batch(
+                    batch_prompts,
+                    system_prompt=self.system_prompt,
                     **llm_kwargs
                 )
-                results[gene] = result
+
+                # Process each response
+                for gene, llm_response in zip(batch_valid_genes, llm_responses):
+                    try:
+                        results[gene] = self._process_llm_response(gene, llm_response)
+                    except ValueError as e:
+                        tqdm.write(f"Warning: {e}, skipping")
+
             except Exception as e:
-                tqdm.write(f"Error processing gene {gene}: {e}")
-                continue
+                tqdm.write(f"Error in batch generation: {e}")
 
         return results
 

@@ -1,0 +1,7 @@
+# HuggingFace Transformers backend configuration
+
+name: transformers
+model_name: Qwen/Qwen3-32B
+temperature: 0.2
+cache_dir: /tmp/huggingface_cache
+max_seq_length: 8192

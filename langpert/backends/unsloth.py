@@ -67,6 +67,10 @@ class UnslothBackend(BaseBackend):
             cache_dir=self.cache_dir,
         )
 
+        # Set pad token if not present (required for batch inference)
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+
         FastLanguageModel.for_inference(self.model)
         print(f"✓ Enabled Unsloth fast inference for {self.model_name}")
 
@@ -160,7 +164,7 @@ class UnslothBackend(BaseBackend):
 
     def generate_batch(self, prompts: List[str], system_prompt: Optional[str] = None, **kwargs) -> List[str]:
         """Generate text for multiple prompts in parallel using batched inference."""
-        
+
         try:
             import torch
         except Exception as e:
@@ -170,6 +174,10 @@ class UnslothBackend(BaseBackend):
 
         # Format all prompts as chat messages
         all_messages = [self._format_as_chat(prompt, system_prompt) for prompt in prompts]
+
+        # Set left padding for decoder-only models (required for correct batch generation)
+        original_padding_side = self.tokenizer.padding_side
+        self.tokenizer.padding_side = "left"
 
         # Tokenize with automatic padding
         inputs = self.tokenizer.apply_chat_template(
@@ -197,5 +205,8 @@ class UnslothBackend(BaseBackend):
             outputs[:, inputs.shape[1]:],
             skip_special_tokens=True
         )
+
+        # Restore original padding side
+        self.tokenizer.padding_side = original_padding_side
 
         return [text.strip() for text in generated_texts]

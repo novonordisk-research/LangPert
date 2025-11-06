@@ -22,8 +22,10 @@ unsloth = ["unsloth>=2025.10"]
 eval = ["pandas>=1.3.0", "perturbdict>=0.1.0"]
 all = ["langpert[transformers,unsloth,eval]"]
 
-[tool.setuptools]
-packages = ["langpert"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["langpert*"]
+exclude = ["figures*"]
 
 [tool.uv.sources]
 perturbdict = { git = "ssh://git@github.com/novonordisk-research/PerturbDict.git" }

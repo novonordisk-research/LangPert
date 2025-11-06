@@ -3,6 +3,7 @@ Prompt loading utilities.
 """
 
 from typing import List, Optional
+from pathlib import Path
 from .templates import PROMPT_TEMPLATES
 from .system_prompts import SYSTEM_PROMPT_TEMPLATES
 
@@ -63,27 +64,22 @@ def list_available_system_prompts() -> List[str]:
     return list(SYSTEM_PROMPT_TEMPLATES.keys())
 
 
+def resolve_prompt_template(template: str) -> str:
+    """Resolve template from file path, template name, or raw string."""
+    path = Path(template)
+    if path.suffix == '.txt' or path.is_file():
+        return path.read_text().strip()
+    return PROMPT_TEMPLATES.get(template, template)
+
+
 def resolve_system_prompt(system_prompt: Optional[str]) -> Optional[str]:
-    """Resolve a system prompt parameter to the actual prompt text.
-
-    Handles both template names and direct prompt strings.
-
-    Args:
-        system_prompt: Either a template name (e.g., "default", "biologist")
-                      or a direct system prompt string, or None
-
-    Returns:
-        The resolved system prompt string, or None if input was None
-    """
+    """Resolve system prompt from file path, template name, or raw string."""
     if system_prompt is None:
         return None
-
-    # If it's a known template name, load from registry
-    if system_prompt in SYSTEM_PROMPT_TEMPLATES:
-        return SYSTEM_PROMPT_TEMPLATES[system_prompt]
-
-    # Otherwise, treat as a direct prompt string
-    return system_prompt
+    path = Path(system_prompt)
+    if path.suffix == '.txt' or path.is_file():
+        return path.read_text().strip()
+    return SYSTEM_PROMPT_TEMPLATES.get(system_prompt, system_prompt)
 
 
 def format_prompt(template_name: str, gene: str, list_of_genes: List[str],

@@ -1,0 +1,7 @@
+# Google Gemini backend configuration
+# Set GEMINI_API_KEY environment variable before running
+
+name: gemini
+model_name: gemini-2.5-flash
+temperature: 0.2
+api_key: ${oc.env:GEMINI_API_KEY}  # Reads from environment variable

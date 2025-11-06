@@ -1,0 +1,30 @@
+# Default configuration for simple_eval.py
+# Example: python simple_eval.py backend=openai dataset.split_fold=1
+
+defaults:
+  - backend: unsloth
+  - _self_
+
+dataset:
+  data_path: /path/to/data/replogle_k562_essential/pert_dict.pkl
+  split_k: 5
+  split_fold: 0
+  split_seed: 42
+  subsample: null  # Set to integer to subsample, null for all
+  subsample_seed: 42
+
+eval:
+  k_range: "5-10"
+  prompt_template: default
+  system_prompt: default
+  verbose: false
+  save_predictions: false
+  save_metrics: false
+  output_dir: outputs/eval
+  # Performance settings
+  batch_size: null  # Set to integer (e.g., 4, 8) to enable batch inference, null for sequential
+  # Weights & Biases tracking
+  use_wandb: false  # Set to true to enable wandb logging
+  wandb_project: null  # Set to your wandb project name
+  wandb_entity: null  # Set to your wandb username/team
+  wandb_run_name: null  # Auto-generated if null

@@ -1,0 +1,8 @@
+# OpenAI backend configuration
+# Set OPENAI_API_KEY and OPENAI_BASE_URL environment variables before running
+
+name: openai
+model_name: openai_gpt5_mini
+temperature: 0.2
+api_key: ${oc.env:OPENAI_API_KEY}
+base_url: ${oc.env:OPENAI_BASE_URL}

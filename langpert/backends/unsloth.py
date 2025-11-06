@@ -67,6 +67,10 @@ class UnslothBackend(BaseBackend):
             cache_dir=self.cache_dir,
         )
 
+        # Set pad token if not present (required for batch inference)
+        if self.tokenizer.pad_token is None:
+            self.tokenizer.pad_token = self.tokenizer.eos_token
+
         FastLanguageModel.for_inference(self.model)
         print(f"✓ Enabled Unsloth fast inference for {self.model_name}")
 
@@ -157,3 +161,52 @@ class UnslothBackend(BaseBackend):
         generated_text = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
 
         return generated_text.strip()
+
+    def generate_batch(self, prompts: List[str], system_prompt: Optional[str] = None, **kwargs) -> List[str]:
+        """Generate text for multiple prompts in parallel using batched inference."""
+
+        try:
+            import torch
+        except Exception as e:
+            raise ImportError("torch is required for UnslothBackend") from e
+
+        gen_config = {**self.generation_config, **kwargs}
+
+        # Format all prompts as chat messages
+        all_messages = [self._format_as_chat(prompt, system_prompt) for prompt in prompts]
+
+        # Set left padding for decoder-only models (required for correct batch generation)
+        original_padding_side = self.tokenizer.padding_side
+        self.tokenizer.padding_side = "left"
+
+        # Tokenize with automatic padding
+        inputs = self.tokenizer.apply_chat_template(
+            all_messages,
+            add_generation_prompt=True,
+            padding=True,
+            return_tensors="pt",
+        )
+
+        # Move to device and generate
+        inputs = inputs.to(self.model.device)
+
+        with torch.no_grad():
+            outputs = self.model.generate(
+                inputs,
+                max_new_tokens=gen_config.get("max_new_tokens", 8192),
+                temperature=gen_config.get("temperature", 0.2),
+                do_sample=gen_config.get("do_sample", True),
+                top_p=gen_config.get("top_p", 0.9),
+                pad_token_id=self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
+            )
+
+        # Decode outputs (excluding input tokens)
+        generated_texts = self.tokenizer.batch_decode(
+            outputs[:, inputs.shape[1]:],
+            skip_special_tokens=True
+        )
+
+        # Restore original padding side
+        self.tokenizer.padding_side = original_padding_side
+
+        return [text.strip() for text in generated_texts]

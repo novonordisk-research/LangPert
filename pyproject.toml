@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "langpert"
 version = "0.1.0"
@@ -26,6 +30,9 @@ all = ["langpert[transformers,unsloth,eval]"]
 where = ["."]
 include = ["langpert*"]
 exclude = ["figures*"]
+
+[tool.setuptools.package-data]
+langpert = ["configs/**/*.yaml", "configs/*.yaml"]
 
 [tool.uv.sources]
 perturbdict = { git = "ssh://git@github.com/novonordisk-research/PerturbDict.git" }

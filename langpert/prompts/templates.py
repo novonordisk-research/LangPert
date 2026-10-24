@@ -80,7 +80,7 @@ Example response format:
 
 DO NOT provide multiple JSON objects or alternative analyses. Provide ONLY ONE response.
 '''
-
+#  Consider cancer-relevant pathways including {related_pathways}.
 CL_PROMPT = r'''
 Instruction: Analyze the gene {gene} and identify {k_range} most similar genes from the provided list. Rank them by similarity (most similar first).
 
@@ -90,7 +90,7 @@ Consider similarity based on:
 - Similar protein-protein interactions
 - Similar effects when knocked out
 
-Context: Analysis should focus on the {cell_line} cell line. Consider cancer-relevant pathways including {related_pathways}.
+Context: Analysis should focus on the {cell_line} cell line.
 
 Available genes: {list_of_genes}
 

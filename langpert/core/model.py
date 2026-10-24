@@ -175,7 +175,7 @@ class LangPert:
         return result
 
     def predict_batch(self, target_genes: List[str],
-                     candidate_genes: Optional[List[str]] = None,
+                     candidate_genes: Optional[Union[List[str], Dict[str, List[str]]]] = None,
                      prompt_template: Optional[str] = None,
                      k_range: Optional[str] = None,
                      batch_size: Optional[int] = None,
@@ -205,7 +205,7 @@ class LangPert:
                 try:
                     results[gene] = self.predict_perturbation(
                         gene,
-                        candidate_genes=candidate_genes,
+                        candidate_genes=candidate_genes[gene] if isinstance(candidate_genes, dict) else candidate_genes,
                         prompt_template=prompt_template,
                         k_range=k_range,
                         **llm_kwargs
@@ -225,7 +225,9 @@ class LangPert:
             # Prepare prompts for this batch
             for gene in batch_genes:
                 try:
-                    gene_candidates = self._prepare_candidates(gene, candidate_genes)
+                    # candidate_genes: one list for all targets, or {target gene: its own candidate list}
+                    per_gene = candidate_genes[gene] if isinstance(candidate_genes, dict) else candidate_genes
+                    gene_candidates = self._prepare_candidates(gene, per_gene)
                     if single_pass_gene_dict is not None:
                         prompt = format_prompt(template, gene, gene_candidates, k_range=k_range, cell_line=cell_line, single_pass_gene_list=single_pass_gene_dict[gene].knn_genes)
                     else:

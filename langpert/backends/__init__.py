@@ -6,10 +6,24 @@ from .openai import OpenAIBackend
 from .config import OpenAIConfig, TransformersConfig, UnslothConfig, GeminiConfig
 
 # Lazy imports for optional backends
+_GPTOSSBackend = None
 _TransformersBackend = None
 _UnslothBackend = None
 _GeminiBackend = None
 
+def _get_gptoss_backend():
+    """Lazy import for GPTOSSBackend."""
+    global _GPTOSSBackend
+    if _GPTOSSBackend is None:
+        try:
+            from .gpt_oss import GPTOSSBackend
+            _GPTOSSBackend = GPTOSSBackend
+        except ImportError as e:
+            raise ImportError(
+                "GPTOSSBackend requires additional dependencies. "
+                "Install with: pip install langpert[transformers]"
+            ) from e
+    return _GPTOSSBackend
 
 def _get_transformers_backend():
     """Lazy import for TransformersBackend."""
@@ -89,7 +103,10 @@ def openai_backend(api_key: str, base_url: Optional[str] = None,
     return OpenAIBackend(api_key=api_key, base_url=base_url,
                          model=model, **config)
 
-
+def gptoss_backend(**config) -> BaseBackend:
+    """Create HuggingFace Transformers backend."""
+    GPTOSSBackend = _get_gptoss_backend()
+    return GPTOSSBackend(**config)
 
 def transformers_backend(**config) -> BaseBackend:
     """Create HuggingFace Transformers backend."""
@@ -113,6 +130,7 @@ __all__ = [
     "BaseBackend",
     "OpenAIBackend",
     "TransformersBackend",
+    "GPTOSSBackend",
     "UnslothBackend",
     "GeminiBackend",
     "create_backend",
@@ -135,4 +153,6 @@ def __getattr__(name: str):
         return _get_unsloth_backend()
     elif name == "GeminiBackend":
         return _get_gemini_backend()
+    elif name == "GPTOSSBackend":
+        return _get_gptoss_backend()
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

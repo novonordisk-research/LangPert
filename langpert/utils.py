@@ -7,16 +7,55 @@ import re
 import numpy as np
 from typing import List, Dict, Optional, Any, Tuple
 
+def extract_last_json_object(text: str) -> Optional[str]:
+    end = text.rfind('}')
+    if end == -1:
+        return None
+
+    depth = 0
+    in_str = False
+    escape = False
+
+    for i in range(end, -1, -1):
+        ch = text[i]
+
+        if in_str:
+            if escape:
+                escape = False
+            elif ch == '\\':
+                escape = True
+            elif ch == '"':
+                in_str = False
+            continue
+        else:
+            if ch == '"':
+                in_str = True
+                continue
+            if ch == '}':
+                depth += 1
+            elif ch == '{':
+                depth -= 1
+                if depth == 0:
+                    return text[i:end+1]
+
+    return None
 
 def extract_genes_from_output(response: str) -> Tuple[List[str], Optional[str]]:
-    """Extract kNN genes and reasoning from LLM response.
+    # 0) Try to pull a JSON object out of wrappers like <|...|>
+    json_str = extract_last_json_object(response)
+    if json_str:
+        try:
+            data = json.loads(json_str)
+            if isinstance(data, dict) and "kNN" in data:
+                return data.get("kNN", []), data.get("reasoning")
+        except json.JSONDecodeError:
+            pass
 
-    Args:
-        response: Raw LLM response text
-
-    Returns:
-        Tuple of (gene_list, reasoning_text)
-    """
+    # (keep your other cases if you want)
+    return [], None
+    
+"""
+def extract_genes_from_output(response: str) -> Tuple[List[str], Optional[str]]:
     # Case 1: Response is already valid JSON
     try:
         data = json.loads(response.strip())
@@ -67,7 +106,7 @@ def extract_genes_from_output(response: str) -> Tuple[List[str], Optional[str]]:
             continue
 
     return [], None
-
+"""
 
 def calculate_knn_mean(knn_genes: List[str], obs_mean: Dict[str, np.ndarray],
                       fallback_value: Optional[np.ndarray] = None) -> np.ndarray:

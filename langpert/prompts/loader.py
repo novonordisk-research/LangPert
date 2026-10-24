@@ -6,7 +6,14 @@ from typing import List, Optional
 from pathlib import Path
 from .templates import PROMPT_TEMPLATES
 from .system_prompts import SYSTEM_PROMPT_TEMPLATES
-
+import pickle
+def save_obj(obj, name):
+    with open(name, 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+def load_obj(name):
+    with open(name, 'rb') as f:
+        obj = pickle.load(f)
+    return obj
 
 def load_prompt(template_name: str = "default") -> str:
     """Load a prompt template by name.
@@ -83,7 +90,7 @@ def resolve_system_prompt(system_prompt: Optional[str]) -> Optional[str]:
 
 
 def format_prompt(template_name: str, gene: str, list_of_genes: List[str],
-                  k_range: Optional[str] = None) -> str:
+                  k_range: Optional[str] = None, cell_line: Optional[str] = None, single_pass_gene_list: Optional[str] = None) -> str:
     """Format a prompt template with gene information.
 
     Accepts either a registered template name or a raw template string.
@@ -105,13 +112,22 @@ def format_prompt(template_name: str, gene: str, list_of_genes: List[str],
     else:
         template = template_name
     genes_str = ", ".join(list_of_genes)
-
+    if single_pass_gene_list is not None:
+        single_pass_genes_str = ", ".join(single_pass_gene_list)
     # Default k_range if not provided
     if k_range is None:
         k_range = "5-10"
-
-    return template.format(gene=gene, list_of_genes=genes_str, k_range=k_range)
-
+    
+    if template_name == "cell_line_specific":
+        return template.format(gene=gene, list_of_genes=genes_str, k_range=k_range, cell_line=cell_line)
+    elif template_name == "cell_line_refine":
+        return template.format(gene=gene, list_of_genes=genes_str, k_range=k_range, cell_line=cell_line, single_pass_gene_list=single_pass_genes_str)
+    elif template_name == "cell_line_drug_specific":
+        return template.format(drug=gene, list_of_drugs=genes_str, k_range=k_range, cell_line=cell_line)
+    elif template_name == "cell_line_drug_refine":
+        return template.format(drug=gene, list_of_drugs=genes_str, k_range=k_range, cell_line=cell_line, single_pass_drug_list=single_pass_genes_str)
+    else:
+        return template.format(gene=gene, list_of_genes=genes_str, k_range=k_range)
 
 def list_prompt_templates() -> None:
     """Print all available prompt templates with descriptions."""
@@ -121,7 +137,9 @@ def list_prompt_templates() -> None:
         "default": "General biological similarity (with reasoning)",
         "minimal": "Simplified version of default",
         "no_reasoning": "Quick results without explanations",
-        "k562": "K562 cell line specific analysis"
+        "k562": "K562 cell line specific analysis",
+        "cell_line_specific": "general cell line specific",
+        "cell_line_refine": "cell line specific refinement-based prompt",
     }
 
     for template_name in PROMPT_TEMPLATES.keys():
